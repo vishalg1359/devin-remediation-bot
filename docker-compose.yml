@@ -1,0 +1,21 @@
+services:
+  remediation-bot:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Leave DEVIN_API_KEY / GITHUB_TOKEN unset to run in fully-mocked demo mode.
+      DEVIN_API_KEY: ${DEVIN_API_KEY:-}
+      DEVIN_API_BASE_URL: ${DEVIN_API_BASE_URL:-https://api.devin.ai/v1}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      TARGET_REPO: ${TARGET_REPO:-vishalg1359/superset}
+      TRIGGER_LABEL: ${TRIGGER_LABEL:-devin-fix}
+      ENABLE_POLLING_TRIGGER: ${ENABLE_POLLING_TRIGGER:-false}
+      MAX_CONCURRENT_SESSIONS: ${MAX_CONCURRENT_SESSIONS:-3}
+      RECONCILE_INTERVAL_SECONDS: ${RECONCILE_INTERVAL_SECONDS:-20}
+    volumes:
+      - remediation-data:/app/data
+
+volumes:
+  remediation-data:
