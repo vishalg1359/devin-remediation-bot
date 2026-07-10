@@ -52,6 +52,30 @@ def _verify_signature(secret: str, body: bytes, signature: str | None) -> bool:
     return hmac.compare_digest(f"sha256={digest}", signature)
 
 
+def _authorize_trigger(authorization: str | None, x_api_token: str | None) -> None:
+    """Guard cost-incurring trigger endpoints (/scan, /simulate/issue).
+
+    When a real Devin key is configured, calls can spend ACUs, so a bearer
+    token is mandatory. In mock mode (no spend) the token is optional, keeping
+    local demos frictionless.
+    """
+    token = settings.api_token
+    if not token:
+        if settings.devin_live:
+            raise HTTPException(
+                status_code=503,
+                detail="API_TOKEN must be set to expose trigger endpoints while running live",
+            )
+        return
+    provided = None
+    if authorization and authorization.startswith("Bearer "):
+        provided = authorization[len("Bearer "):]
+    elif x_api_token:
+        provided = x_api_token
+    if not provided or not hmac.compare_digest(provided, token):
+        raise HTTPException(status_code=401, detail="invalid or missing API token")
+
+
 def _scheduled_scan() -> None:
     """Scheduled trigger: run a dependency scan and dispatch remediations."""
     try:
@@ -94,6 +118,12 @@ async def github_webhook(
     if settings.github_webhook_secret:
         if not _verify_signature(settings.github_webhook_secret, body, x_hub_signature_256):
             raise HTTPException(status_code=401, detail="invalid signature")
+    elif settings.devin_live:
+        # Never accept unsigned webhooks when a real Devin key can spend ACUs.
+        raise HTTPException(
+            status_code=503,
+            detail="GITHUB_WEBHOOK_SECRET must be set to accept webhooks while running live",
+        )
 
     if x_github_event != "issues":
         return {"ignored": True, "reason": f"event {x_github_event} not handled"}
@@ -120,12 +150,17 @@ async def github_webhook(
 
 
 @app.post("/scan")
-async def trigger_scan(request: Request):
+async def trigger_scan(
+    request: Request,
+    authorization: str | None = Header(default=None),
+    x_api_token: str | None = Header(default=None),
+):
     """Event trigger: run a dependency scan and dispatch Devin remediations.
 
     This is the primary demo trigger — it emulates a scan-results event (a CI
     job, a cron, or a scanner webhook calling in). Optional body: {"repo": ...}.
     """
+    _authorize_trigger(authorization, x_api_token)
     repo = None
     try:
         body = await request.json()
@@ -141,8 +176,13 @@ async def trigger_scan(request: Request):
 
 
 @app.post("/simulate/issue")
-async def simulate_issue(request: Request):
+async def simulate_issue(
+    request: Request,
+    authorization: str | None = Header(default=None),
+    x_api_token: str | None = Header(default=None),
+):
     """Manual trigger to demo a single issue without wiring GitHub webhooks."""
+    _authorize_trigger(authorization, x_api_token)
     payload = await request.json()
     if "number" not in payload or "title" not in payload:
         raise HTTPException(status_code=422, detail="require 'number' and 'title'")

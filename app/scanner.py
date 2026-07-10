@@ -95,4 +95,4 @@ def scan(pyproject_path: str | Path | None = None, limit: int | None = None) -> 
         findings = scan_pyproject(pyproject_path)
     else:
         findings = list(_MOCK_FINDINGS)
-    return findings[:limit] if limit else findings
+    return findings[:limit] if limit is not None else findings

@@ -85,6 +85,7 @@ class Orchestrator:
         task = RemediationTask(
             issue_number=issue["number"],
             issue_title=issue["title"],
+            issue_body=(issue.get("body") or ""),
             repo=repo,
         )
         existing = self.store.get(task.key())
@@ -179,5 +180,5 @@ class Orchestrator:
             return
         queued = [t for t in self.store.list_tasks() if t.status == TaskStatus.QUEUED]
         for task in queued[:capacity]:
-            issue = {"number": task.issue_number, "title": task.issue_title, "body": ""}
+            issue = {"number": task.issue_number, "title": task.issue_title, "body": task.issue_body}
             self._start_session(task, issue, task.repo)

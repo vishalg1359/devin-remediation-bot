@@ -33,6 +33,7 @@ class RemediationTask:
     issue_number: int
     issue_title: str
     repo: str
+    issue_body: str = ""
     status: TaskStatus = TaskStatus.QUEUED
     session_id: str | None = None
     session_url: str | None = None
