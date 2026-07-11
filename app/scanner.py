@@ -111,6 +111,30 @@ def upgrade_available(finding: Finding) -> bool | None:
         return None
 
 
+def replay_findings(fixture_path: str | Path) -> list[Finding]:
+    """Build findings directly from a recorded-run fixture.
+
+    Used in replay mode so a "Run scan" reproduces exactly the dependencies of
+    the recorded real run — self-contained and portable, independent of any
+    checked-out ``pyproject.toml``.
+    """
+    data = json.loads(Path(fixture_path).read_text())
+    findings: list[Finding] = []
+    for r in data.get("runs", []):
+        title = r.get("issue_title", "")
+        m = re.search(r"<\s*(\d+)", title)
+        cap = m.group(1) if m else "?"
+        findings.append(
+            Finding(
+                name=r["dep"],
+                current_constraint=f"pinned below `<{cap}`",
+                capped_below_major=cap,
+                rationale="Replayed from a previously recorded real run.",
+            )
+        )
+    return findings
+
+
 def scan_pyproject(pyproject_path: str | Path) -> list[Finding]:
     """Return findings for dependencies capped below a newer major."""
     path = Path(pyproject_path)
