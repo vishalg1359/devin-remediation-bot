@@ -105,7 +105,12 @@ app = FastAPI(title="Devin Auto-Remediation Bot", version="0.1.0", lifespan=life
 
 @app.get("/healthz")
 def healthz() -> dict:
-    return {"status": "ok", "devin_live": settings.devin_live, "github_live": settings.github_live}
+    return {
+        "status": "ok",
+        "devin_live": settings.devin_live,
+        "github_live": settings.github_live,
+        "demo_replay": settings.demo_replay,
+    }
 
 
 @app.post("/webhook/github")

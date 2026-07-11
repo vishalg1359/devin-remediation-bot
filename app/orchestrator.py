@@ -16,7 +16,7 @@ from .config import settings
 from .devin_client import DevinClientError, SessionInfo, build_devin_client
 from .github_client import GitHubClient
 from .models import DEVIN_TERMINAL, RemediationTask, TaskStatus, utcnow_iso
-from .scanner import Finding, scan
+from .scanner import Finding, replay_findings, scan
 from .store import Store
 
 log = logging.getLogger("orchestrator")
@@ -69,7 +69,14 @@ class Orchestrator:
         handed to Devin (Part 2). Returns the tasks created/updated.
         """
         repo = repo or settings.target_repo
-        findings: list[Finding] = scan(settings.scan_pyproject_path, limit=settings.scan_max_findings)
+        if settings.demo_replay:
+            findings = replay_findings(settings.demo_replay_fixture)
+        else:
+            findings: list[Finding] = scan(
+                settings.scan_pyproject_path,
+                limit=settings.scan_max_findings,
+                verify=settings.scan_verify_available,
+            )
         log.info("scan produced %d finding(s) for %s", len(findings), repo)
         tasks: list[RemediationTask] = []
         for i, finding in enumerate(findings, start=1):

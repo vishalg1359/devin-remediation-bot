@@ -1,0 +1,51 @@
+{
+  "generated_at": "2026-07-11T20:37:41.648190+00:00",
+  "source_db": "data/live_run.db",
+  "runs": [
+    {
+      "dep": "pandas",
+      "issue_title": "Upgrade `pandas` past its `<2` cap",
+      "session_id": "devin-3c98392e8e714e76ba65a695c87fa019",
+      "session_url": "https://app.devin.ai/sessions/3c98392e8e714e76ba65a695c87fa019",
+      "pr_url": "https://github.com/vishalg1359/superset/pull/7",
+      "acus_consumed": 0.0,
+      "status": "exit"
+    },
+    {
+      "dep": "pyarrow",
+      "issue_title": "Upgrade `pyarrow` past its `<25` cap",
+      "session_id": "devin-8a389c0edf9f451dafa12d9d135d47ec",
+      "session_url": "https://app.devin.ai/sessions/8a389c0edf9f451dafa12d9d135d47ec",
+      "pr_url": "https://github.com/vishalg1359/superset/pull/6",
+      "acus_consumed": 0.0,
+      "status": "exit"
+    },
+    {
+      "dep": "paramiko",
+      "issue_title": "Upgrade `paramiko` past its `<4` cap",
+      "session_id": "devin-0b5e6724fed9429b881e33e48ce83e8d",
+      "session_url": "https://app.devin.ai/sessions/0b5e6724fed9429b881e33e48ce83e8d",
+      "pr_url": "https://github.com/vishalg1359/superset/pull/4",
+      "acus_consumed": 0.0,
+      "status": "exit"
+    },
+    {
+      "dep": "redis",
+      "issue_title": "Upgrade `redis` past its `<6` cap",
+      "session_id": "devin-1555a2c62aee42a3b26ea21361dd7fcf",
+      "session_url": "https://app.devin.ai/sessions/1555a2c62aee42a3b26ea21361dd7fcf",
+      "pr_url": "https://github.com/vishalg1359/superset/pull/3",
+      "acus_consumed": 0.0,
+      "status": "exit"
+    },
+    {
+      "dep": "cachetools",
+      "issue_title": "Upgrade `cachetools` past its `<7` cap",
+      "session_id": "devin-6664f1140dad461f996e2d1ca52d9a47",
+      "session_url": "https://app.devin.ai/sessions/6664f1140dad461f996e2d1ca52d9a47",
+      "pr_url": "https://github.com/vishalg1359/superset/pull/2",
+      "acus_consumed": 0.0,
+      "status": "exit"
+    }
+  ]
+}

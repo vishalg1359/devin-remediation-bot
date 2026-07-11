@@ -9,9 +9,12 @@ does not know or care which mode is active — it just calls create/get.
 from __future__ import annotations
 
 import itertools
+import json
 import random
+import re
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 import httpx
 
@@ -119,10 +122,61 @@ class MockDevinClient:
         return SessionInfo(session_id, "exit", url=url, pr_url=pr_url, acus_consumed=round(2 + s["polls"], 1))
 
 
-DevinClient = LiveDevinClient | MockDevinClient
+class ReplayDevinClient:
+    """Replays a previously-recorded real run from a fixture file.
+
+    Zero API calls, zero ACUs. Each created session is matched to a recorded
+    outcome by dependency name, then the lifecycle animates running -> exit over
+    a couple of polls, resolving to the *real* PR/session links and ACU numbers
+    captured during the live run. This lets the dashboard be demoed repeatedly
+    for free while still showing genuine Devin PRs.
+    """
+
+    _DEP_RE = re.compile(r"`([A-Za-z0-9_.\-]+)`")
+    _counter = itertools.count(1)
+
+    def __init__(self, fixture_path: str) -> None:
+        data = json.loads(Path(fixture_path).read_text())
+        self._outcomes: dict[str, dict] = {r["dep"]: r for r in data.get("runs", [])}
+        self._sessions: dict[str, dict] = {}
+
+    def _dep(self, *texts: str | None) -> str | None:
+        for t in texts:
+            m = self._DEP_RE.search(t or "")
+            if m:
+                return m.group(1)
+        return None
+
+    def create_session(self, prompt: str, title: str, tags: list[str]) -> SessionInfo:
+        dep = self._dep(title, prompt)
+        outcome = self._outcomes.get(dep or "", {})
+        sid = outcome.get("session_id") or f"devin-replay-{next(self._counter):04d}"
+        self._sessions[sid] = {"polls": 0, "outcome": outcome}
+        url = outcome.get("session_url") or f"https://app.devin.ai/sessions/{sid}"
+        return SessionInfo(sid, status="running", url=url)
+
+    def get_session(self, session_id: str) -> SessionInfo:
+        s = self._sessions.get(session_id)
+        if s is None:
+            raise DevinClientError(f"unknown session {session_id}")
+        s["polls"] += 1
+        o = s["outcome"]
+        url = o.get("session_url") or f"https://app.devin.ai/sessions/{session_id}"
+        acus = float(o.get("acus_consumed", 0) or 0)
+        if s["polls"] < 2:
+            return SessionInfo(session_id, "running", url=url, acus_consumed=round(acus * 0.5, 1))
+        pr_url = o.get("pr_url")
+        if o.get("status") == "error" or not pr_url:
+            return SessionInfo(session_id, "error", url=url, acus_consumed=acus)
+        return SessionInfo(session_id, "exit", url=url, pr_url=pr_url, acus_consumed=acus)
+
+
+DevinClient = LiveDevinClient | MockDevinClient | ReplayDevinClient
 
 
 def build_devin_client() -> DevinClient:
+    if settings.demo_replay:
+        return ReplayDevinClient(settings.demo_replay_fixture)  # type: ignore[arg-type]
     if settings.devin_live:
         return LiveDevinClient(settings.devin_api_key, settings.devin_api_base_url)  # type: ignore[arg-type]
     return MockDevinClient()
