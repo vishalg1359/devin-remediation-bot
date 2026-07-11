@@ -4,85 +4,321 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Devin Auto-Remediation — Control Tower</title>
-  <meta http-equiv="refresh" content="10" />
   <style>
-    :root { color-scheme: dark; }
+    :root {
+      color-scheme: dark;
+      --bg: #0a0c12;
+      --bg-elev: #10141e;
+      --panel: #131826;
+      --panel-2: #171d2e;
+      --border: #222a3d;
+      --border-soft: #1a2032;
+      --text: #eef1f7;
+      --muted: #8b98b0;
+      --faint: #5a6782;
+      --accent: #6ea8fe;
+      --accent-2: #7c5cff;
+      --green: #4ade80;
+      --amber: #fbbf24;
+      --red: #f87171;
+      --purple: #c08bff;
+    }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-           background: #0b0e14; color: #e6e6e6; }
-    header { padding: 22px 32px; border-bottom: 1px solid #1c2230;
-             display: flex; align-items: baseline; gap: 16px; }
-    header h1 { font-size: 20px; margin: 0; }
-    header .mode { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #1c2230; color: #9fb0c3; }
-    .live { background: #10331f; color: #5be584; }
-    main { padding: 24px 32px; }
-    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 28px; }
-    .card { background: #121722; border: 1px solid #1c2230; border-radius: 12px; padding: 16px 18px; }
-    .card .label { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #7d8ba1; }
-    .card .value { font-size: 30px; font-weight: 600; margin-top: 6px; }
-    .card .value.good { color: #5be584; }
-    .card .value.bad { color: #ff6b6b; }
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid #1c2230; }
-    th { color: #7d8ba1; font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
-    a { color: #6ea8fe; text-decoration: none; }
+    html, body { margin: 0; }
+    body {
+      font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background:
+        radial-gradient(1200px 600px at 80% -10%, rgba(124,92,255,.10), transparent 60%),
+        radial-gradient(1000px 500px at 0% 0%, rgba(110,168,254,.08), transparent 55%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
-    .pill { padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
-    .queued   { background:#26304a; color:#9fb0c3; }
-    .running  { background:#243a52; color:#6ea8fe; }
-    .pr_open  { background:#2b2140; color:#c08bff; }
-    .completed{ background:#10331f; color:#5be584; }
-    .failed   { background:#3a1d1d; color:#ff6b6b; }
-    .skipped  { background:#26304a; color:#7d8ba1; }
-    footer { padding: 16px 32px; color:#5c6a80; font-size:12px; }
-    .empty { color:#5c6a80; padding: 24px 0; }
+    .mono { font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace; }
+
+    /* Header */
+    header {
+      padding: 20px 34px;
+      border-bottom: 1px solid var(--border-soft);
+      display: flex; align-items: center; gap: 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,.02), transparent);
+      backdrop-filter: blur(6px);
+      position: sticky; top: 0; z-index: 5;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .logo {
+      width: 34px; height: 34px; border-radius: 9px; flex: none;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      display: grid; place-items: center; font-weight: 800; color: #0a0c12;
+      box-shadow: 0 4px 16px rgba(124,92,255,.35);
+    }
+    .brand h1 { font-size: 16px; margin: 0; letter-spacing: .2px; }
+    .brand .sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .spacer { flex: 1; }
+    .badge {
+      font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+      background: var(--panel-2); color: var(--muted); border: 1px solid var(--border);
+      display: inline-flex; align-items: center; gap: 6px; letter-spacing: .03em;
+    }
+    .badge.live { background: rgba(74,222,128,.12); color: var(--green); border-color: rgba(74,222,128,.3); }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .dot.pulse { animation: pulse 1.8s infinite; }
+    @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(74,222,128,.5)} 70%{box-shadow:0 0 0 7px rgba(74,222,128,0)} 100%{box-shadow:0 0 0 0 rgba(74,222,128,0)} }
+
+    main { padding: 26px 34px 60px; max-width: 1400px; margin: 0 auto; }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex; align-items: center; gap: 16px; margin-bottom: 22px; flex-wrap: wrap;
+    }
+    .toolbar .title { font-size: 13px; color: var(--muted); }
+    .toolbar .title b { color: var(--text); font-weight: 600; }
+    .btn {
+      border: 0; cursor: pointer; font-weight: 650; font-size: 13.5px;
+      padding: 11px 18px; border-radius: 10px; color: #0a0c12;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      display: inline-flex; align-items: center; gap: 9px; letter-spacing: .01em;
+      box-shadow: 0 6px 20px rgba(110,168,254,.28); transition: transform .08s ease, box-shadow .2s ease, opacity .2s;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 26px rgba(124,92,255,.4); }
+    .btn:active { transform: translateY(0); }
+    .btn[disabled] { opacity: .55; cursor: default; transform: none; box-shadow: none; }
+    .btn .play { font-size: 12px; }
+    .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(10,12,18,.35); border-top-color: #0a0c12; animation: rot .7s linear infinite; }
+    @keyframes rot { to { transform: rotate(360deg); } }
+    .live-tag { font-size: 12px; color: var(--faint); display: inline-flex; align-items: center; gap: 7px; }
+
+    /* KPI cards */
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 14px; margin-bottom: 26px; }
+    .card {
+      position: relative; overflow: hidden;
+      background: linear-gradient(180deg, var(--panel), var(--bg-elev));
+      border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px;
+    }
+    .card::before { content:""; position:absolute; inset:0 auto auto 0; width:3px; height:100%; background: var(--accent); opacity:.85; }
+    .card.k-prs::before { background: var(--green); }
+    .card.k-fail::before { background: var(--red); }
+    .card.k-rate::before { background: var(--accent-2); }
+    .card.k-time::before { background: var(--amber); }
+    .card.k-acu::before { background: var(--purple); }
+    .card .label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); }
+    .card .value { font-size: 30px; font-weight: 700; margin-top: 7px; line-height: 1; letter-spacing: -.02em; }
+    .card .value.good { color: var(--green); }
+    .card .value.bad { color: var(--red); }
+    .card .foot { font-size: 11.5px; color: var(--muted); margin-top: 7px; }
+
+    /* Table panel */
+    .panel {
+      background: linear-gradient(180deg, var(--panel), var(--bg-elev));
+      border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+    }
+    .panel-head { padding: 15px 20px; border-bottom: 1px solid var(--border-soft); display:flex; align-items:center; gap:10px; }
+    .panel-head h2 { font-size: 14px; margin: 0; font-weight: 600; }
+    .panel-head .count { font-size: 12px; color: var(--faint); background: var(--panel-2); padding: 2px 9px; border-radius: 999px; border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    th, td { text-align: left; padding: 13px 20px; border-bottom: 1px solid var(--border-soft); }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr { transition: background .15s ease; }
+    tbody tr:hover { background: rgba(255,255,255,.02); }
+    th { color: var(--faint); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+    .dep { font-weight: 600; }
+    .cap { color: var(--muted); font-size: 12px; }
+    .pill { padding: 4px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 650; display: inline-flex; align-items:center; gap:6px; text-transform: capitalize; }
+    .pill .dot { width: 6px; height: 6px; }
+    .queued   { background: rgba(139,152,176,.14); color: #aeb9cf; }
+    .running  { background: rgba(110,168,254,.15); color: var(--accent); }
+    .running .dot { animation: pulse2 1.4s infinite; }
+    @keyframes pulse2 { 0%,100%{opacity:1} 50%{opacity:.35} }
+    .pr_open  { background: rgba(192,139,255,.15); color: var(--purple); }
+    .completed{ background: rgba(74,222,128,.14); color: var(--green); }
+    .failed   { background: rgba(248,113,113,.15); color: var(--red); }
+    .skipped  { background: rgba(139,152,176,.12); color: var(--faint); }
+    .linkbtn { font-size: 12px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); }
+    .linkbtn:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+    .dash { color: var(--faint); }
+
+    .empty { padding: 46px 20px; text-align: center; color: var(--muted); }
+    .empty .big { font-size: 15px; color: var(--text); margin-bottom: 6px; }
+
+    footer { padding: 18px 34px; color: var(--faint); font-size: 12px; text-align: center; }
+
+    /* Toast */
+    #toast {
+      position: fixed; right: 22px; bottom: 22px; z-index: 30;
+      background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+      padding: 13px 16px; border-radius: 11px; font-size: 13.5px; box-shadow: 0 12px 40px rgba(0,0,0,.5);
+      opacity: 0; transform: translateY(10px); transition: opacity .25s, transform .25s; pointer-events: none;
+      display: flex; align-items: center; gap: 10px; max-width: 380px;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast .ic { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex: none; }
+    #toast.err .ic { background: var(--red); }
   </style>
 </head>
 <body>
   <header>
-    <h1>Devin Auto-Remediation · Control Tower</h1>
-    <span class="mode {{ 'live' if settings.devin_live else '' }}">
-      Devin: {{ 'LIVE' if settings.devin_live else 'MOCK' }}
+    <div class="brand">
+      <div class="logo">◆</div>
+      <div>
+        <h1>Auto-Remediation Control Tower</h1>
+        <div class="sub">Autonomous dependency-upgrade swarm, powered by Devin</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <span class="badge {{ 'live' if settings.devin_live else '' }}">
+      <span class="dot {{ 'pulse' if settings.devin_live else '' }}"></span>
+      Devin&nbsp;·&nbsp;{{ 'LIVE' if settings.devin_live else 'MOCK' }}
     </span>
-    <span class="mode {{ 'live' if settings.github_live else '' }}">
-      GitHub: {{ 'LIVE' if settings.github_live else 'MOCK' }}
+    <span class="badge {{ 'live' if settings.github_live else '' }}">
+      <span class="dot"></span>
+      GitHub&nbsp;·&nbsp;{{ 'LIVE' if settings.github_live else 'MOCK' }}
     </span>
-    <span class="mode">target: {{ settings.target_repo }}</span>
+    <span class="badge"><span class="mono">{{ settings.target_repo }}</span></span>
   </header>
+
   <main>
-    <div class="cards">
-      <div class="card"><div class="label">Total tasks</div><div class="value">{{ metrics.total_tasks }}</div></div>
-      <div class="card"><div class="label">Active</div><div class="value">{{ metrics.active_tasks }}</div></div>
-      <div class="card"><div class="label">PRs opened</div><div class="value good">{{ metrics.prs_opened }}</div></div>
-      <div class="card"><div class="label">Failed</div><div class="value {{ 'bad' if metrics.failed else '' }}">{{ metrics.failed }}</div></div>
-      <div class="card"><div class="label">Success rate</div>
-        <div class="value">{{ (metrics.success_rate * 100) | round(0) | int ~ '%' if metrics.success_rate is not none else '—' }}</div></div>
-      <div class="card"><div class="label">Avg time to PR</div>
-        <div class="value">{{ (metrics.avg_time_to_pr_seconds | round(0) | int ~ 's') if metrics.avg_time_to_pr_seconds is not none else '—' }}</div></div>
-      <div class="card"><div class="label">ACUs consumed</div><div class="value">{{ metrics.total_acus_consumed }}</div></div>
+    <div class="toolbar">
+      <div class="title">Fire a dependency <b>scan event</b> — the system opens one Devin session per outdated library, in parallel.</div>
+      <div class="spacer"></div>
+      <span class="live-tag"><span class="dot pulse" style="color:var(--green)"></span> live · updates every 2.5s</span>
+      <button class="btn" id="scanBtn" onclick="runScan()">
+        <span class="play">▶</span><span id="scanLabel">Run dependency scan</span>
+      </button>
     </div>
 
-    <table>
-      <thead>
-        <tr><th>Issue</th><th>Title</th><th>Status</th><th>Session</th><th>Pull request</th><th>ACUs</th><th>Updated</th></tr>
-      </thead>
-      <tbody>
-        {% for t in tasks %}
-        <tr>
-          <td>#{{ t.issue_number }}</td>
-          <td>{{ t.issue_title }}</td>
-          <td><span class="pill {{ t.status.value }}">{{ t.status.value }}</span></td>
-          <td>{% if t.session_url %}<a href="{{ t.session_url }}" target="_blank">session</a>{% else %}—{% endif %}</td>
-          <td>{% if t.pr_url %}<a href="{{ t.pr_url }}" target="_blank">PR</a>{% else %}—{% endif %}</td>
-          <td>{{ t.acus_consumed }}</td>
-          <td>{{ t.updated_at.split('T')[1][:8] if 'T' in t.updated_at else t.updated_at }}</td>
-        </tr>
-        {% else %}
-        <tr><td colspan="7" class="empty">No tasks yet. Fire an issue event to get started.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="cards">
+      <div class="card"><div class="label">Total tasks</div><div class="value" id="m-total">—</div><div class="foot">dependencies detected</div></div>
+      <div class="card"><div class="label">Active</div><div class="value" id="m-active">—</div><div class="foot" id="m-active-foot">running + queued</div></div>
+      <div class="card k-prs"><div class="label">PRs opened</div><div class="value good" id="m-prs">—</div><div class="foot">green &amp; ready to review</div></div>
+      <div class="card k-fail"><div class="label">Failed</div><div class="value" id="m-fail">—</div><div class="foot">need attention</div></div>
+      <div class="card k-rate"><div class="label">Success rate</div><div class="value" id="m-rate">—</div><div class="foot">resolved / finished</div></div>
+      <div class="card k-time"><div class="label">Avg time to PR</div><div class="value" id="m-time">—</div><div class="foot">intake → pull request</div></div>
+      <div class="card k-acu"><div class="label">ACUs consumed</div><div class="value" id="m-acu">—</div><div class="foot">compute cost</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Remediation tasks</h2>
+        <span class="count" id="taskCount">0</span>
+        <div class="spacer" style="flex:1"></div>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Issue</th><th>Dependency</th><th>Status</th><th>Session</th><th>Pull request</th><th>ACUs</th><th>Updated</th></tr>
+        </thead>
+        <tbody id="rows">
+          <tr><td colspan="7" class="empty"><div class="big">No tasks yet</div>Click <b>Run dependency scan</b> to fire the event and watch the swarm work.</td></tr>
+        </tbody>
+      </table>
+    </div>
   </main>
-  <footer>Auto-refreshes every 10s · JSON at <a href="/api/metrics">/api/metrics</a> · Prometheus at <a href="/metrics">/metrics</a></footer>
+
+  <footer>
+    JSON metrics at <a href="/api/metrics">/api/metrics</a> · Prometheus at <a href="/metrics">/metrics</a> · tasks at <a href="/api/tasks">/api/tasks</a>
+  </footer>
+
+  <div id="toast"><span class="ic"></span><span id="toastMsg"></span></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    function toast(msg, isErr) {
+      $("toastMsg").textContent = msg;
+      const t = $("toast");
+      t.classList.toggle("err", !!isErr);
+      t.classList.add("show");
+      clearTimeout(window.__tt);
+      window.__tt = setTimeout(() => t.classList.remove("show"), 3200);
+    }
+
+    async function runScan() {
+      const btn = $("scanBtn");
+      btn.disabled = true;
+      $("scanLabel").textContent = "Scanning…";
+      btn.querySelector(".play").outerHTML = '<span class="spin"></span>';
+      try {
+        const r = await fetch("/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const d = await r.json();
+        toast(`Scan fired — ${d.findings} finding${d.findings === 1 ? "" : "s"} dispatched to Devin`);
+        await refresh();
+      } catch (e) {
+        toast("Scan failed: " + e.message + (String(e).includes("401") ? " (API_TOKEN required in live mode)" : ""), true);
+      } finally {
+        setTimeout(() => {
+          btn.disabled = false;
+          $("scanLabel").textContent = "Run dependency scan";
+          const s = btn.querySelector(".spin");
+          if (s) s.outerHTML = '<span class="play">▶</span>';
+        }, 900);
+      }
+    }
+
+    const pct = (v) => v === null || v === undefined ? "—" : Math.round(v * 100) + "%";
+    const secs = (v) => v === null || v === undefined ? "—" : Math.round(v) + "s";
+    const esc = (s) => (s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c]));
+    const clock = (ts) => { try { return new Date(ts).toLocaleTimeString([], {hour12:false}); } catch { return ""; } };
+
+    // "Upgrade `celery` past its `<6` cap" -> {dep:"celery", cap:"<6"}
+    function parseTitle(t) {
+      const m = /`([^`]+)`.*?`([^`]+)`/.exec(t || "");
+      if (m) return { dep: m[1], cap: m[2] };
+      return { dep: t || "", cap: "" };
+    }
+
+    function statusPill(s) {
+      return `<span class="pill ${s}"><span class="dot"></span>${s.replace("_", " ")}</span>`;
+    }
+
+    async function refresh() {
+      let m, tasks;
+      try {
+        [m, tasks] = await Promise.all([
+          fetch("/api/metrics").then(r => r.json()),
+          fetch("/api/tasks").then(r => r.json()),
+        ]);
+      } catch { return; }
+
+      $("m-total").textContent = m.total_tasks;
+      $("m-active").textContent = m.active_tasks;
+      $("m-prs").textContent = m.prs_opened;
+      const fail = $("m-fail");
+      fail.textContent = m.failed;
+      fail.className = "value" + (m.failed ? " bad" : "");
+      $("m-rate").textContent = pct(m.success_rate);
+      $("m-time").textContent = secs(m.avg_time_to_pr_seconds);
+      $("m-acu").textContent = (m.total_acus_consumed ?? 0).toFixed(1);
+
+      $("taskCount").textContent = tasks.length;
+
+      const body = $("rows");
+      if (!tasks.length) {
+        body.innerHTML = `<tr><td colspan="7" class="empty"><div class="big">No tasks yet</div>Click <b>Run dependency scan</b> to fire the event and watch the swarm work.</td></tr>`;
+        return;
+      }
+      // newest issue numbers first
+      tasks.sort((a, b) => b.issue_number - a.issue_number);
+      body.innerHTML = tasks.map(t => {
+        const { dep, cap } = parseTitle(t.issue_title);
+        const session = t.session_url ? `<a class="linkbtn" href="${esc(t.session_url)}" target="_blank">session ↗</a>` : `<span class="dash">—</span>`;
+        const pr = t.pr_url ? `<a class="linkbtn" href="${esc(t.pr_url)}" target="_blank">PR ↗</a>` : `<span class="dash">—</span>`;
+        return `<tr>
+          <td class="mono">#${t.issue_number}</td>
+          <td><span class="dep mono">${esc(dep)}</span> ${cap ? `<span class="cap mono">${esc(cap)}</span>` : ""}</td>
+          <td>${statusPill(t.status)}</td>
+          <td>${session}</td>
+          <td>${pr}</td>
+          <td class="mono">${(t.acus_consumed ?? 0).toFixed(1)}</td>
+          <td class="mono" style="color:var(--muted)">${clock(t.updated_at)}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    refresh();
+    setInterval(refresh, 2500);
+  </script>
 </body>
 </html>
