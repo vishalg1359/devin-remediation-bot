@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     # Only issues carrying this label are picked up.
     trigger_label: str = "devin-fix"
 
+    # --- API auth ---
+    # Bearer token required to call the cost-incurring trigger endpoints
+    # (/scan, /simulate/issue). When running live (a real Devin key is set)
+    # a token is mandatory; in mock mode it is optional so local demos are
+    # frictionless.
+    api_token: str | None = None
+
     # --- Scanner (the event source) ---
     # Path to the target repo's pyproject.toml to scan for capped dependencies.
     # When unset/missing, the scanner falls back to curated real Superset caps.

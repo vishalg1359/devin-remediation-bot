@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     key            TEXT PRIMARY KEY,
     issue_number   INTEGER NOT NULL,
     issue_title    TEXT NOT NULL,
+    issue_body     TEXT NOT NULL DEFAULT '',
     repo           TEXT NOT NULL,
     status         TEXT NOT NULL,
     session_id     TEXT,
@@ -40,6 +41,14 @@ class Store:
             os.makedirs(os.path.dirname(path), exist_ok=True)
         with self._connect() as conn:
             conn.executescript(_SCHEMA)
+            self._migrate(conn)
+
+    @staticmethod
+    def _migrate(conn: sqlite3.Connection) -> None:
+        """Additive migrations for DBs created before a column existed."""
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(tasks)").fetchall()}
+        if "issue_body" not in cols:
+            conn.execute("ALTER TABLE tasks ADD COLUMN issue_body TEXT NOT NULL DEFAULT ''")
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
@@ -56,6 +65,7 @@ class Store:
         return RemediationTask(
             issue_number=row["issue_number"],
             issue_title=row["issue_title"],
+            issue_body=row["issue_body"],
             repo=row["repo"],
             status=TaskStatus(row["status"]),
             session_id=row["session_id"],
@@ -77,12 +87,13 @@ class Store:
         with self._lock, self._connect() as conn:
             conn.execute(
                 """
-                INSERT INTO tasks (key, issue_number, issue_title, repo, status,
+                INSERT INTO tasks (key, issue_number, issue_title, issue_body, repo, status,
                     session_id, session_url, pr_url, error, acus_consumed,
                     created_at, updated_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(key) DO UPDATE SET
                     issue_title=excluded.issue_title,
+                    issue_body=excluded.issue_body,
                     status=excluded.status,
                     session_id=excluded.session_id,
                     session_url=excluded.session_url,
@@ -92,8 +103,8 @@ class Store:
                     updated_at=excluded.updated_at
                 """,
                 (
-                    task.key(), task.issue_number, task.issue_title, task.repo,
-                    task.status.value, task.session_id, task.session_url,
+                    task.key(), task.issue_number, task.issue_title, task.issue_body,
+                    task.repo, task.status.value, task.session_id, task.session_url,
                     task.pr_url, task.error, task.acus_consumed,
                     task.created_at, task.updated_at,
                 ),

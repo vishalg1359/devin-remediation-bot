@@ -112,6 +112,36 @@ def test_scanner_parses_pyproject(tmp_path):
     assert names == {"marshmallow", "flask"}  # only capped deps flagged
 
 
+def test_scan_limit_zero_returns_no_findings():
+    # limit=0 means "dispatch nothing", not "no limit".
+    assert scan(None, limit=0) == []
+
+
+def test_promoted_task_retains_issue_body(store, monkeypatch):
+    monkeypatch.setattr(settings, "max_concurrent_sessions", 1)
+    orch = Orchestrator(store)
+
+    prompts: list[str] = []
+    real_create = orch.devin.create_session
+
+    def _record(prompt, **kwargs):
+        prompts.append(prompt)
+        return real_create(prompt=prompt, **kwargs)
+
+    monkeypatch.setattr(orch.devin, "create_session", _record)
+
+    orch.handle_issue({"number": 1, "title": "one", "body": "first body"}, "acme/superset")
+    orch.handle_issue({"number": 2, "title": "two", "body": "second body"}, "acme/superset")
+    assert store.get("acme/superset#2").issue_body == "second body"
+
+    for _ in range(6):
+        orch.reconcile()
+
+    # The promoted session must carry the original body, not "(no description provided)".
+    assert any("second body" in p for p in prompts)
+    assert all("(no description provided)" not in p for p in prompts)
+
+
 def test_dispatch_scan_files_issues_and_starts_sessions(store, monkeypatch):
     monkeypatch.setattr(settings, "scan_pyproject_path", None)
     monkeypatch.setattr(settings, "scan_max_findings", 3)
