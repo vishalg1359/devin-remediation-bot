@@ -69,7 +69,11 @@ class Orchestrator:
         handed to Devin (Part 2). Returns the tasks created/updated.
         """
         repo = repo or settings.target_repo
-        findings: list[Finding] = scan(settings.scan_pyproject_path, limit=settings.scan_max_findings)
+        findings: list[Finding] = scan(
+            settings.scan_pyproject_path,
+            limit=settings.scan_max_findings,
+            verify=settings.scan_verify_available,
+        )
         log.info("scan produced %d finding(s) for %s", len(findings), repo)
         tasks: list[RemediationTask] = []
         for i, finding in enumerate(findings, start=1):

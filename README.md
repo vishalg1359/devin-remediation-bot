@@ -137,6 +137,32 @@ ENABLE_POLLING_TRIGGER=true docker compose up --build
 Point `SCAN_PYPROJECT_PATH` at your Superset checkout's `pyproject.toml` to scan
 the real dependency list, or leave it blank to use the curated Superset caps.
 
+Set `SCAN_VERIFY_AVAILABLE=true` to have the scanner check each capped
+dependency against PyPI and **drop no-op caps** — an upper bound like `<7` when
+the newest release is already `6.x` isn't a real upgrade, so it's filtered out.
+This keeps a live run from opening sessions for dependencies that have nothing
+newer to move to. (Off by default so offline demos stay deterministic.)
+
+---
+
+## Replay a recorded run (free, repeatable demo)
+
+A real run spends ACUs once. To demo it repeatedly at **zero cost**, record the
+completed run to a fixture and replay it:
+
+```bash
+# after a live run, capture its real session/PR links + ACUs:
+DATABASE_PATH=data/live_run.db python -m scripts.record_run demo/real_run.json
+
+# then replay it — the dashboard re-animates the same fan-out, resolving to the
+# REAL PRs Devin opened, without calling the API:
+DEMO_REPLAY_FIXTURE=demo/real_run.json uvicorn app.main:app
+```
+
+In replay mode the Devin badge reads **REPLAY**, and every "Run scan" replays
+the recorded run — genuine Devin PRs, real numbers, `$0` per demo. Precedence is
+`replay → live → mock`, so a saved fixture always wins for presentations.
+
 ---
 
 ## Observability — "how do I know it's working?"

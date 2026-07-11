@@ -14,7 +14,10 @@ demos without network access or the repo checked out.
 
 from __future__ import annotations
 
+import json
+import logging
 import re
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,6 +25,8 @@ try:  # Python 3.11+
     import tomllib
 except ModuleNotFoundError:  # Python 3.10 fallback
     import tomli as tomllib
+
+log = logging.getLogger("scanner")
 
 
 @dataclass
@@ -65,6 +70,45 @@ _MOCK_FINDINGS = [
 # Matches a spec's package name and any "<N" upper bound major.
 _SPEC_RE = re.compile(r"^\s*([A-Za-z0-9_.\-]+)")
 _UPPER_RE = re.compile(r"<\s*(\d+)")
+# Strips a leading package name (and optional extras) from a requirement spec,
+# leaving just the version specifier, e.g. "pandas[excel]>=2,<3" -> ">=2,<3".
+_NAME_PREFIX_RE = re.compile(r"^\s*[A-Za-z0-9_.\-]+(\[[^\]]*\])?")
+
+
+def _pypi_latest_version(name: str) -> str | None:
+    try:
+        url = f"https://pypi.org/pypi/{name}/json"
+        with urllib.request.urlopen(url, timeout=10) as resp:  # noqa: S310 - fixed https host
+            return json.load(resp)["info"]["version"]
+    except Exception as exc:  # noqa: BLE001 - network/parse errors are non-fatal
+        log.warning("pypi lookup failed for %s: %s", name, exc)
+        return None
+
+
+def upgrade_available(finding: Finding) -> bool | None:
+    """Is the latest PyPI release actually blocked by the current constraint?
+
+    Returns True when a genuinely newer release exists that the pin forbids
+    (a real upgrade), False when the pin already allows the latest release
+    (a no-op cap, e.g. `<7` when the newest version is 6.x), and None when it
+    cannot be determined (offline / parse error) so callers can keep the
+    finding rather than silently drop it.
+    """
+    latest = _pypi_latest_version(finding.name)
+    if latest is None:
+        return None
+    try:
+        from packaging.specifiers import SpecifierSet
+
+        spec_text = _NAME_PREFIX_RE.sub("", finding.current_constraint).strip()
+        if not spec_text:
+            return None
+        # If the newest published release does not satisfy the pin, the pin is
+        # holding back a real upgrade.
+        return not SpecifierSet(spec_text).contains(latest, prereleases=False)
+    except Exception as exc:  # noqa: BLE001 - be conservative, keep the finding
+        log.warning("could not evaluate constraint for %s: %s", finding.name, exc)
+        return None
 
 
 def scan_pyproject(pyproject_path: str | Path) -> list[Finding]:
@@ -89,10 +133,23 @@ def scan_pyproject(pyproject_path: str | Path) -> list[Finding]:
     return findings
 
 
-def scan(pyproject_path: str | Path | None = None, limit: int | None = None) -> list[Finding]:
-    """Run a scan. Falls back to curated real findings when no repo is given."""
+def scan(
+    pyproject_path: str | Path | None = None,
+    limit: int | None = None,
+    verify: bool = False,
+) -> list[Finding]:
+    """Run a scan. Falls back to curated real findings when no repo is given.
+
+    When ``verify`` is set, each finding is checked against PyPI and no-op caps
+    (an upper bound that already allows the newest release, e.g. ``<7`` when the
+    latest version is 6.x) are dropped, so the scan only surfaces dependencies
+    with a genuinely-available newer release to upgrade to. Findings that can't
+    be verified (offline / parse error) are kept.
+    """
     if pyproject_path and Path(pyproject_path).exists():
         findings = scan_pyproject(pyproject_path)
     else:
         findings = list(_MOCK_FINDINGS)
+    if verify:
+        findings = [f for f in findings if upgrade_available(f) is not False]
     return findings[:limit] if limit is not None else findings

@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     scan_pyproject_path: str | None = None
     # Cap how many findings a single scan dispatches (demo / cost guardrail).
     scan_max_findings: int = 3
+    # When true, verify each finding against PyPI and drop no-op caps (an upper
+    # bound that already allows the latest release), so only genuinely-available
+    # upgrades are dispatched. Off by default to keep offline demos deterministic.
+    scan_verify_available: bool = False
 
     # --- Orchestration ---
     # Cap concurrent Devin sessions so an automation can't stampede.
@@ -55,9 +59,21 @@ class Settings(BaseSettings):
     # --- Storage ---
     database_path: str = "data/remediation.db"
 
+    # --- Demo replay ---
+    # When set to a fixture file, the system replays a previously-recorded real
+    # run instead of calling the Devin API: zero cost, fully repeatable, and it
+    # resolves to the real PR/session links captured during the live run. Takes
+    # precedence over live mode so a saved run can be demoed for free.
+    demo_replay_fixture: str | None = None
+
+    @property
+    def demo_replay(self) -> bool:
+        from pathlib import Path
+        return bool(self.demo_replay_fixture and Path(self.demo_replay_fixture).exists())
+
     @property
     def devin_live(self) -> bool:
-        return bool(self.devin_api_key)
+        return bool(self.devin_api_key) and not self.demo_replay
 
     @property
     def github_live(self) -> bool:

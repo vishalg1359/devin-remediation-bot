@@ -169,8 +169,8 @@
     </div>
     <div class="spacer"></div>
     <span class="badge {{ 'live' if settings.devin_live else '' }}">
-      <span class="dot {{ 'pulse' if settings.devin_live else '' }}"></span>
-      Devin&nbsp;·&nbsp;{{ 'LIVE' if settings.devin_live else 'MOCK' }}
+      <span class="dot {{ 'pulse' if (settings.devin_live or settings.demo_replay) else '' }}"></span>
+      Devin&nbsp;·&nbsp;{{ 'LIVE' if settings.devin_live else ('REPLAY' if settings.demo_replay else 'MOCK') }}
     </span>
     <span class="badge {{ 'live' if settings.github_live else '' }}">
       <span class="dot"></span>
