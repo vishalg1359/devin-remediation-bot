@@ -103,7 +103,7 @@
     .card.k-fail::before { background: var(--red); }
     .card.k-rate::before { background: var(--accent-2); }
     .card.k-time::before { background: var(--amber); }
-    .card.k-acu::before { background: var(--purple); }
+    .card.k-hours::before { background: var(--green); }
     .card .label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); }
     .card .value { font-size: 30px; font-weight: 700; margin-top: 7px; line-height: 1; letter-spacing: -.02em; }
     .card .value.good { color: var(--green); }
@@ -168,14 +168,7 @@
       </div>
     </div>
     <div class="spacer"></div>
-    <span class="badge {{ 'live' if settings.devin_live else '' }}">
-      <span class="dot {{ 'pulse' if (settings.devin_live or settings.demo_replay) else '' }}"></span>
-      Devin&nbsp;·&nbsp;{{ 'LIVE' if settings.devin_live else ('REPLAY' if settings.demo_replay else 'MOCK') }}
-    </span>
-    <span class="badge {{ 'live' if settings.github_live else '' }}">
-      <span class="dot"></span>
-      GitHub&nbsp;·&nbsp;{{ 'LIVE' if settings.github_live else 'MOCK' }}
-    </span>
+    <span class="badge"><span class="dot pulse" style="color:var(--green)"></span>Monitoring</span>
     <span class="badge"><span class="mono">{{ settings.target_repo }}</span></span>
   </header>
 
@@ -196,7 +189,7 @@
       <div class="card k-fail"><div class="label">Failed</div><div class="value" id="m-fail">—</div><div class="foot">need attention</div></div>
       <div class="card k-rate"><div class="label">Success rate</div><div class="value" id="m-rate">—</div><div class="foot">resolved / finished</div></div>
       <div class="card k-time"><div class="label">Avg time to PR</div><div class="value" id="m-time">—</div><div class="foot">intake → pull request</div></div>
-      <div class="card k-acu"><div class="label">ACUs consumed</div><div class="value" id="m-acu">—</div><div class="foot">compute cost</div></div>
+      <div class="card k-hours"><div class="label">Eng-hours saved</div><div class="value good" id="m-hours">—</div><div class="foot">est. vs. manual upgrades</div></div>
     </div>
 
     <div class="panel">
@@ -207,10 +200,10 @@
       </div>
       <table>
         <thead>
-          <tr><th>Issue</th><th>Dependency</th><th>Status</th><th>Session</th><th>Pull request</th><th>ACUs</th><th>Updated</th></tr>
+          <tr><th>Issue</th><th>Dependency</th><th>Status</th><th>Session</th><th>Pull request</th><th>Updated</th></tr>
         </thead>
         <tbody id="rows">
-          <tr><td colspan="7" class="empty"><div class="big">No tasks yet</div>Click <b>Run dependency scan</b> to fire the event and watch the swarm work.</td></tr>
+          <tr><td colspan="6" class="empty"><div class="big">No tasks yet</div>Click <b>Run dependency scan</b> to fire the event and watch the swarm work.</td></tr>
         </tbody>
       </table>
     </div>
@@ -290,13 +283,13 @@
       fail.className = "value" + (m.failed ? " bad" : "");
       $("m-rate").textContent = pct(m.success_rate);
       $("m-time").textContent = secs(m.avg_time_to_pr_seconds);
-      $("m-acu").textContent = (m.total_acus_consumed ?? 0).toFixed(1);
+      $("m-hours").textContent = (m.eng_hours_saved ?? 0) + "h";
 
       $("taskCount").textContent = tasks.length;
 
       const body = $("rows");
       if (!tasks.length) {
-        body.innerHTML = `<tr><td colspan="7" class="empty"><div class="big">No tasks yet</div>Click <b>Run dependency scan</b> to fire the event and watch the swarm work.</td></tr>`;
+        body.innerHTML = `<tr><td colspan="6" class="empty"><div class="big">No tasks yet</div>Click <b>Run dependency scan</b> to fire the event and watch the swarm work.</td></tr>`;
         return;
       }
       // newest issue numbers first
@@ -311,7 +304,6 @@
           <td>${statusPill(t.status)}</td>
           <td>${session}</td>
           <td>${pr}</td>
-          <td class="mono">${(t.acus_consumed ?? 0).toFixed(1)}</td>
           <td class="mono" style="color:var(--muted)">${clock(t.updated_at)}</td>
         </tr>`;
       }).join("");

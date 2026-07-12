@@ -147,21 +147,23 @@ newer to move to. (Off by default so offline demos stay deterministic.)
 
 ## Replay a recorded run (free, repeatable demo)
 
-A real run spends ACUs once. To demo it repeatedly at **zero cost**, record the
-completed run to a fixture and replay it:
+A real run spends ACUs once. To demo it repeatedly at **zero cost**, replay the
+recorded run. Switching modes is a single argument:
 
 ```bash
-# after a live run, capture its real session/PR links + ACUs:
-DATABASE_PATH=data/live_run.db python -m scripts.record_run demo/real_run.json
-
-# then replay it — the dashboard re-animates the same fan-out, resolving to the
-# REAL PRs Devin opened, without calling the API:
-DEMO_REPLAY_FIXTURE=demo/real_run.json uvicorn app.main:app
+./scripts/run.sh replay      # recorded real run → the REAL PRs, zero API calls (default)
+./scripts/run.sh live 8001   # real Devin sessions + PRs (needs DEVIN_API_KEY + API_TOKEN)
+./scripts/run.sh mock        # simulated sessions, no spend
 ```
 
-In replay mode the Devin badge reads **REPLAY**, and every "Run scan" replays
-the recorded run — genuine Devin PRs, real numbers, `$0` per demo. Precedence is
-`replay → live → mock`, so a saved fixture always wins for presentations.
+`replay`/`mock` start from an empty board each run (a fresh db), so stale rows
+never linger. Equivalent to setting `MODE=replay|live|mock` in `.env`. Every
+"Run scan" in replay re-animates the recorded fan-out to the genuine Devin PRs —
+real numbers, `$0` per demo. To capture a fresh fixture after a live run:
+
+```bash
+DATABASE_PATH=data/live_run.db python -m scripts.record_run demo/real_run.json
+```
 
 ---
 
@@ -169,7 +171,7 @@ the recorded run — genuine Devin PRs, real numbers, `$0` per demo. Precedence 
 
 | Surface | What it shows |
 | --- | --- |
-| **`/` dashboard** | Live control tower: totals, active tasks, PRs opened, failures, **success rate**, **avg time-to-PR**, ACUs consumed, and a per-issue table linking to each Devin session and PR. Auto-refreshes. |
+| **`/` dashboard** | Live control tower: totals, active tasks, PRs opened, failures, **success rate**, **avg time-to-PR**, **est. engineer-hours saved**, and a per-issue table linking to each Devin session and PR. Auto-refreshes. |
 | **`/api/metrics`** | The same numbers as JSON, for dashboards/alerting. |
 | **`/metrics`** | Prometheus text format, for scraping into Grafana. |
 | **`/api/tasks`** | Full task list as JSON. |

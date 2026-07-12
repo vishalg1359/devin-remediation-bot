@@ -70,7 +70,7 @@ class Orchestrator:
         """
         repo = repo or settings.target_repo
         if settings.demo_replay:
-            findings = replay_findings(settings.demo_replay_fixture)
+            findings = replay_findings(settings.replay_fixture_path)
         else:
             findings: list[Finding] = scan(
                 settings.scan_pyproject_path,

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from .config import settings
 from .models import RemediationTask, TaskStatus
 from .store import Store
 
@@ -42,15 +43,20 @@ def compute_metrics(store: Store) -> dict:
             durations.append((_parse(t.updated_at) - _parse(t.created_at)).total_seconds())
     avg_time_to_pr = round(sum(durations) / len(durations), 1) if durations else None
 
+    prs_opened = sum(1 for t in tasks if t.pr_url)
+    # Business-impact proxy that always tracks real progress: each opened PR is
+    # a major upgrade a human would otherwise grind through by hand.
+    hours_saved = round(prs_opened * settings.est_hours_saved_per_upgrade, 1)
+
     return {
         "total_tasks": total,
         "active_tasks": active,
-        "prs_opened": sum(1 for t in tasks if t.pr_url),
+        "prs_opened": prs_opened,
         "completed": completed,
         "failed": failed,
         "success_rate": success_rate,
         "avg_time_to_pr_seconds": avg_time_to_pr,
-        "total_acus_consumed": round(sum(t.acus_consumed for t in tasks), 1),
+        "eng_hours_saved": hours_saved,
         "by_status": by_status,
     }
 
@@ -71,9 +77,9 @@ def prometheus_text(store: Store) -> str:
         "# HELP remediation_tasks_active Currently active tasks.",
         "# TYPE remediation_tasks_active gauge",
         f"remediation_tasks_active {m['active_tasks']}",
-        "# HELP remediation_acus_consumed_total ACUs consumed across sessions.",
-        "# TYPE remediation_acus_consumed_total counter",
-        f"remediation_acus_consumed_total {m['total_acus_consumed']}",
+        "# HELP remediation_eng_hours_saved Estimated senior-engineer hours saved.",
+        "# TYPE remediation_eng_hours_saved gauge",
+        f"remediation_eng_hours_saved {m['eng_hours_saved']}",
     ]
     if m["success_rate"] is not None:
         lines += [
