@@ -176,7 +176,7 @@ DevinClient = LiveDevinClient | MockDevinClient | ReplayDevinClient
 
 def build_devin_client() -> DevinClient:
     if settings.demo_replay:
-        return ReplayDevinClient(settings.demo_replay_fixture)  # type: ignore[arg-type]
+        return ReplayDevinClient(settings.replay_fixture_path)
     if settings.devin_live:
         return LiveDevinClient(settings.devin_api_key, settings.devin_api_base_url)  # type: ignore[arg-type]
     return MockDevinClient()

@@ -6,6 +6,8 @@ with zero secrets. Supplying real credentials flips it from "mock" to "live".
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -44,6 +46,19 @@ class Settings(BaseSettings):
     # upgrades are dispatched. Off by default to keep offline demos deterministic.
     scan_verify_available: bool = False
 
+    # --- Mode ---
+    # One switch to pick how sessions are executed:
+    #   "mock"   -> simulated sessions, no spend (great for local dev)
+    #   "replay" -> re-animate a recorded real run to the real PRs, zero cost
+    #   "live"   -> call the real Devin API and open real PRs (needs a key)
+    #   "auto"   -> infer: replay if a fixture is present, else live if a key
+    #               is set, else mock (preserves the original behaviour).
+    mode: str = "auto"
+
+    # Estimated senior-engineer hours a manual major upgrade would take. Used
+    # only to surface an at-a-glance business-impact KPI ("hours saved").
+    est_hours_saved_per_upgrade: float = 6.0
+
     # --- Orchestration ---
     # Cap concurrent Devin sessions so an automation can't stampede.
     max_concurrent_sessions: int = 3
@@ -66,14 +81,39 @@ class Settings(BaseSettings):
     # precedence over live mode so a saved run can be demoed for free.
     demo_replay_fixture: str | None = None
 
+    # Default fixture used when replay mode is selected without an explicit path.
+    _DEFAULT_REPLAY_FIXTURE: ClassVar[str] = "demo/real_run.json"
+
+    @property
+    def replay_fixture_path(self) -> str:
+        return self.demo_replay_fixture or self._DEFAULT_REPLAY_FIXTURE
+
+    @property
+    def resolved_mode(self) -> str:
+        """Collapse the `mode` switch (+ legacy env) into one of mock/replay/live."""
+        from pathlib import Path
+
+        m = (self.mode or "auto").lower()
+        if m == "replay":
+            return "replay"
+        if m == "live":
+            return "live" if self.devin_api_key else "mock"
+        if m == "mock":
+            return "mock"
+        # auto: preserve the original precedence (fixture > key > mock).
+        if self.demo_replay_fixture and Path(self.demo_replay_fixture).exists():
+            return "replay"
+        if self.devin_api_key:
+            return "live"
+        return "mock"
+
     @property
     def demo_replay(self) -> bool:
-        from pathlib import Path
-        return bool(self.demo_replay_fixture and Path(self.demo_replay_fixture).exists())
+        return self.resolved_mode == "replay"
 
     @property
     def devin_live(self) -> bool:
-        return bool(self.devin_api_key) and not self.demo_replay
+        return self.resolved_mode == "live"
 
     @property
     def github_live(self) -> bool:
