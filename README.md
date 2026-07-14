@@ -18,6 +18,28 @@ engineering primitive, targeting a fork of
 
 ---
 
+## For reviewers — run it in 30 seconds
+
+No secrets, no ACUs — the whole pipeline runs mocked:
+
+```bash
+docker compose up --build      # dashboard on http://localhost:8000
+python scripts/simulate.py     # in another terminal: fires a dependency-scan event
+open http://localhost:8000/    # watch sessions fan out, run, and open PRs
+```
+
+Prefer a recorded **real** run (genuine Devin sessions + real PRs, replayed at
+zero cost)? `docker compose run --rm -e MODE=replay -p 8000:8000 remediation-bot`,
+or locally `./scripts/run.sh replay`.
+
+The remediated dependencies and the resulting pull requests live on the target
+fork: **[vishalg1359/superset](https://github.com/vishalg1359/superset/pulls)**
+— see its [`REMEDIATION.md`](https://github.com/vishalg1359/superset/blob/master/REMEDIATION.md)
+for the selected-issue → PR map (pandas and SQLAlchemy 2.0 are the substantive
+ones).
+
+---
+
 ## Why this matters (the business case)
 
 Major dependency upgrades are one of the most expensive, most deferred chores in
